@@ -1,127 +1,216 @@
-'use client';
+// @ts-nocheck
 
-import { useEffect, useRef, useState } from 'react';
-import qrious from 'qrious';
-import Image from 'next/image';
-// import { DummyQR, UPILogos } from '@/assets';
-import html2canvas from 'html2canvas';
+"use client"
 
-export default function Home() {
-  const [upiString, setUpiString] = useState('');
-  const [formData, setFormData] = useState({
-    upiHandle: '',
-    amount: '',
-  });
-  const qrContainerRef = useRef<HTMLDivElement>(null);
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Copy, Download } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import QrCodeWithLogo from 'qrcode-with-logos'
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
-  };
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from "@/components/ui/card"
+import Image from 'next/image'
 
-  useEffect(() => {
-    const { upiHandle, amount } = formData;
-    if (validateForm()) {
-      const upi = `upi://pay?pa=${upiHandle}&am=${amount}`;
-      setUpiString(upi);
-    } else {
-      setUpiString('');
+
+export default function QrCodeGenerator() {
+  const [qrCode, setQrCode] = useState<string>()
+  const [error, setError] = useState<string>()
+  const [payment, setPayment] = useState({
+    upiId: "",
+    amount: ""
+  })
+  const [darkMode, setDarkMode] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const ref = useRef<HTMLImageElement | undefined>(null)
+
+
+  const generateQRCode = useCallback(() => {
+    const { amount, upiId } = payment;
+
+    if (!upiId || !amount) {
+      setError('Please enter both UPI ID and amount.')
+      setQrCode('')
+      return
     }
-  }, [formData]);
 
-  const validateForm = () => {
-    const { upiHandle, amount } = formData;
-    const upiHandleRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-    const amountValue = parseFloat(amount);
-    return (
-      upiHandleRegex.test(upiHandle) && amountValue > 0 && amountValue <= 100000
-    );
-  };
-  const handleDownload = () => {
-    html2canvas(qrContainerRef.current).then((canvas) => {
-      const link = document.createElement('a');
-      link.download = 'qr-code.png';
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    });
-  };
+    if (!/^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/.test(upiId)) {
+      setError('Invalid UPI ID format.')
+      setQrCode('')
+      return
+    }
+
+    if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      setError('Please enter a valid amount.')
+      setQrCode('')
+      return
+    }
+
+    const upiUrl = `upi://pay?pa=${upiId}&am=${amount}&cu=INR`
+
+    const qrcode = new QrCodeWithLogo({
+      canvas: document.getElementById("canvas"),
+      content: upiUrl,
+      width: 380,
+      image: ref.current,
+      // logo: {
+      //   src: 'https://avatars1.githubusercontent.com/u/28730619?s=460&v=4'
+      // },
+      cornersOptions: {
+        radius: 10,
+        type: "rounded"
+      },
+      dotsOptions: {
+        type: "rounded"
+      }
+    })
+
+    qrcode.getCanvas().then((canvas) => {
+      const src = canvas.toDataURL()
+      setQrCode(src);
+    })
+
+    setError('');
+
+    console.log("rendered")
+  }, [payment])
+
+  const copyToClipboard = () => {
+    navigator.clipboard.writeText(qrCode ?? "").then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
+
+  const downloadQRCode = () => {
+    const svg = document.getElementById('qr-code')
+    const svgData = new XMLSerializer().serializeToString(svg)
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    const img = new Image()
+    img.onload = () => {
+      canvas.width = img.width
+      canvas.height = img.height
+      ctx?.drawImage(img, 0, 0)
+      const pngFile = canvas.toDataURL('image/png')
+      const downloadLink = document.createElement('a')
+      downloadLink.download = 'upi-qr-code.png'
+      downloadLink.href = pngFile
+      downloadLink.click()
+    }
+    img.src = 'data:image/svg+xml;base64,' + btoa(svgData)
+  }
+
 
   return (
-    <main className="container min-h-[80vh] mx-auto rounded-2xl shadow-lg grid bg-zinc-200 grid-cols-1 md:grid-cols-2 items-center justify-center p-4 md:px-24 md:pb-24 md:pt-0">
-      <h1 className="md:col-span-2 text-center text-3xl">UPI Quick Code</h1>
-      <div className="flex flex-col items-center w-full justify-center">
-        <form className="space-y-4 w-full px-4">
-          <h2>Enter Your UPI Id</h2>
-          <input
-            type="text"
-            name="upiHandle"
-            onChange={handleChange}
-            placeholder="example@upi"
-            value={formData.upiHandle}
-            className="p-2 border border-gray-300 rounded w-full"
-          />
-          <h3>Enter Amount</h3>
-          <input
-            type="number"
-            name="amount"
-            onChange={handleChange}
-            placeholder="25000"
-            value={formData.amount}
-            className="p-2 border border-gray-300 rounded w-full"
-          />
-        </form>
-        <button
-          onClick={handleDownload}
-          className="bg-[#ff7978] text-white px-4 py-2 rounded-xl shadow-xl mt-10 mb-10 md:mb-0"
-        >
-          Download QR
-        </button>
-      </div>
-      <div
-        ref={qrContainerRef}
-        className="bg-zinc-300 w-full h-full flex flex-col justify-around p-4 items-center rounded-2xl shadow-xl"
-      >
-        <p className="text-xl">
-          {formData.upiHandle ? formData.upiHandle : 'Enter UPI Handle'}
-        </p>
-        <QRCodeDisplay upiString={upiString} />
-        <div>
-          <h2 className="text-xl text-center mb-4">
-            Scan & Pay with any UPI app
-          </h2>
-          <Image
-            src={""}
-            alt="Scan and pay with any upi app - amazon pay - google pay - phonepe - paytm"
-          />
-        </div>
-      </div>
-    </main>
-  );
-}
+    <div className={`min-h-screen flex items-center justify-center bg-gradient-to-br ${darkMode ? 'from-gray-900 to-gray-800' : 'from-blue-100 to-purple-200'} p-4`}>
+      <Card className="w-full max-w-md">
+        <CardHeader className="relative">
+          <div className="absolute right-4 top-4">
+            <Switch
+              checked={darkMode}
+              onCheckedChange={setDarkMode}
+              className="data-[state=checked]:bg-slate-700"
+            />
+            <span className="sr-only">Toggle dark mode</span>
+          </div>
+          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">UPI QR Code Generator</CardTitle>
+          <CardDescription>Generate a QR code for UPI payments</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="upi-id">UPI ID</Label>
+            <Input
+              id="upi-id"
+              placeholder="yourname@upi"
+              value={payment.upiId}
+              onChange={(e) => setPayment(prev => ({
+                ...prev,
+                upiId: e.target.value,
+              }))}
+              autoComplete='off'
+              className="bg-transparent border-gray-300 dark:border-gray-700"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="amount">Amount (INR)</Label>
+            <Input
+              id="amount"
+              type="number"
+              placeholder="Enter amount"
+              value={payment.amount}
+              onChange={(e) => setPayment(prev => ({
+                ...prev,
+                amount: e.target.value,
+              }))}
+              autoComplete='off'
+              className="bg-transparent border-gray-300 dark:border-gray-700"
+            />
+          </div>
+          <Button
+            onClick={generateQRCode}
+            className="w-full bg-gradient-to-r from-purple-600 to-blue-500 hover:from-purple-700 hover:to-blue-600 text-white"
+          >
+            Generate QR Code
+          </Button>
+          <AnimatePresence>
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="text-red-500 text-sm"
+              >
+                {error}
+              </motion.p>
+            )}
+          </AnimatePresence>
+        </CardContent>
+        <CardFooter className="flex flex-col items-center">
+          <AnimatePresence>
+            {qrCode && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                className="text-center"
+              >
+                <Image
 
-const QRCodeDisplay = ({ upiString } : { upiString: string }) => {
-  const qrRef = useRef(null);
-
-  useEffect(() => {
-    if (upiString) {
-      new qrious({
-        element: qrRef.current,
-        value: upiString,
-        size: 250,
-      });
-    }
-  }, [upiString]);
-
-  return (
-    <div className="qr-container border border-black p-3 rounded-xl bg-white">
-      {upiString ? (
-        <canvas ref={qrRef} />
-      ) : (
-        <Image width={250} height={250} src={""} alt="Dummy QR Code" />
-      )}
+                  ref={ref}
+                  width={200}
+                  height={200}
+                  alt='qr code'
+                  src={qrCode}
+                  className='mx-auto'
+                />
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Scan this QR code with any UPI to pay
+                </p>
+                <div className="mt-4 flex space-x-2">
+                  <Button onClick={copyToClipboard} variant="outline" size="sm">
+                    {copied ? 'Copied!' : 'Copy Link'}
+                    <Copy className="ml-2 h-4 w-4" />
+                  </Button>
+                  <Button onClick={downloadQRCode} variant="outline" size="sm">
+                    Download QR
+                    <Download className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </CardFooter>
+      </Card>
     </div>
-  );
-};
+  )
+}
