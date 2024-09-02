@@ -1,8 +1,8 @@
-import "@/styles/globals.css";
-
 import { type Metadata } from "next";
-import { PropsWithChildren } from "react";
+import  { type PropsWithChildren } from "react";
 import { Noto_Sans } from "next/font/google"
+
+import "@/styles/globals.css";
 
 
 export const metadata: Metadata = {

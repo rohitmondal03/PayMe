@@ -1,8 +1,7 @@
-// @ts-nocheck
-
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import Image from 'next/image'
+import { useState, useRef, useCallback } from 'react'
 import { Copy, Download } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import QrCodeWithLogo from 'qrcode-with-logos'
@@ -19,7 +18,6 @@ import {
   CardHeader,
   CardTitle
 } from "@/components/ui/card"
-import Image from 'next/image'
 
 
 export default function QrCodeGenerator() {
@@ -31,7 +29,7 @@ export default function QrCodeGenerator() {
   })
   const [darkMode, setDarkMode] = useState(false)
   const [copied, setCopied] = useState(false)
-  const ref = useRef<HTMLImageElement | undefined>(null)
+  const ref = useRef<HTMLImageElement | undefined>();
 
 
   const generateQRCode = useCallback(() => {
@@ -58,15 +56,14 @@ export default function QrCodeGenerator() {
     const upiUrl = `upi://pay?pa=${upiId}&am=${amount}&cu=INR`
 
     const qrcode = new QrCodeWithLogo({
-      canvas: document.getElementById("canvas"),
       content: upiUrl,
       width: 380,
       image: ref.current,
       // logo: {
-      //   src: 'https://avatars1.githubusercontent.com/u/28730619?s=460&v=4'
+      //   src: 'https://avatars1.githubusercontent.com/u/rohitmondal03?s=460&v=4'
       // },
       cornersOptions: {
-        radius: 10,
+        radius: 15,
         type: "rounded"
       },
       dotsOptions: {
@@ -74,7 +71,7 @@ export default function QrCodeGenerator() {
       }
     })
 
-    qrcode.getCanvas().then((canvas) => {
+    void qrcode.getCanvas().then((canvas) => {
       const src = canvas.toDataURL()
       setQrCode(src);
     })
@@ -85,18 +82,18 @@ export default function QrCodeGenerator() {
   }, [payment])
 
   const copyToClipboard = () => {
-    navigator.clipboard.writeText(qrCode ?? "").then(() => {
+    void navigator.clipboard.writeText(qrCode ?? "").then(() => {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
   }
 
   const downloadQRCode = () => {
-    const svg = document.getElementById('qr-code')
+    const svg = document.getElementById('qr-code') as unknown as SVGElement
     const svgData = new XMLSerializer().serializeToString(svg)
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
-    const img = new Image()
+    const img = new window.Image()
     img.onload = () => {
       canvas.width = img.width
       canvas.height = img.height
@@ -185,7 +182,7 @@ export default function QrCodeGenerator() {
                 className="text-center"
               >
                 <Image
-
+                  // @ts-expect-error "giving null error of ref"
                   ref={ref}
                   width={200}
                   height={200}
